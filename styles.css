@@ -1,0 +1,43 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 16px;
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: #14171c; color: #dde3ea; font-size: 14px;
+}
+header h1 { font-size: 20px; margin: 0 0 4px; }
+header .sub { color: #8a94a3; margin: 0 0 16px; }
+main { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.stage { position: relative; }
+canvas#stage { background: #0b0d10; border: 1px solid #2a313c; border-radius: 6px; display: block; }
+#hud {
+  position: absolute; top: 8px; left: 8px; display: flex; gap: 12px;
+  background: rgba(0,0,0,.55); padding: 4px 10px; border-radius: 4px;
+  font-family: monospace; font-size: 13px; pointer-events: none;
+}
+#hud .warn { color: #ffb74d; font-weight: bold; }
+.hidden { display: none; }
+.panel { width: 420px; max-height: 640px; overflow-y: auto; background: #1b2028; border: 1px solid #2a313c; border-radius: 6px; padding: 12px 16px; }
+.panel h2 { font-size: 14px; margin: 14px 0 8px; color: #7ec8ff; border-bottom: 1px solid #2a313c; padding-bottom: 4px; }
+.panel label { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.panel label input[type=range] { flex: 1; }
+.panel label b { min-width: 44px; text-align: right; font-family: monospace; }
+.row { display: flex; gap: 8px; margin: 8px 0; align-items: center; flex-wrap: wrap; }
+button {
+  background: #2b6cb0; color: #fff; border: 0; border-radius: 4px;
+  padding: 6px 12px; cursor: pointer; font-size: 13px;
+}
+button:hover { background: #3182ce; }
+button:disabled { background: #4a5568; cursor: not-allowed; }
+.chk { font-size: 13px; }
+table.stats, table.history { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.stats td, table.history td, table.history th {
+  border: 1px solid #2a313c; padding: 3px 6px; font-family: monospace;
+}
+table.stats td:first-child { color: #8a94a3; width: 45%; }
+table.history th { background: #232a34; text-align: left; }
+.selftest { list-style: none; padding: 0; margin: 0; font-family: monospace; font-size: 12px; }
+.selftest li { padding: 2px 0; }
+.selftest .pass { color: #68d391; }
+.selftest .fail { color: #fc8181; }
+#bench-result { font-family: monospace; font-size: 12px; white-space: pre-line; }
+.good { color: #68d391; } .bad { color: #fc8181; }

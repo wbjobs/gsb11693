@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>渲染排序与脏矩形重绘对比</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <h1>渲染排序 &amp; 脏矩形局部重绘 vs 全量重绘</h1>
+  <p class="sub">Canvas + Web Worker + PerformanceObserver + IndexedDB</p>
+</header>
+
+<main>
+  <section class="stage">
+    <canvas id="stage" width="960" height="600"></canvas>
+    <div id="hud">
+      <span id="hud-mode">模式: 脏矩形</span>
+      <span id="hud-fps">FPS: --</span>
+      <span id="hud-fallback" class="warn hidden">已降级为全量重绘</span>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <h2>控制</h2>
+    <label>对象数量 <input id="opt-count" type="range" min="100" max="5000" step="100" value="1500"><b id="opt-count-v">1500</b></label>
+    <label>每帧更新比例 <input id="opt-update" type="range" min="1" max="100" value="20"><b id="opt-update-v">20%</b></label>
+    <label>图层数 <input id="opt-layers" type="range" min="2" max="16" value="8"><b id="opt-layers-v">8</b></label>
+    <label>降级阈值(脏区占比) <input id="opt-threshold" type="range" min="10" max="100" value="50"><b id="opt-threshold-v">50%</b></label>
+    <label>内存预算(MB) <input id="opt-mem" type="range" min="8" max="256" value="64"><b id="opt-mem-v">64</b></label>
+    <div class="row">
+      <button id="btn-mode">切换到全量重绘</button>
+      <button id="btn-bench">开始对比测试(10s)</button>
+    </div>
+    <div class="row">
+      <button id="btn-verify">一致性校验</button>
+      <label class="chk"><input id="opt-autoverify" type="checkbox" checked> 每60帧自动校验</label>
+    </div>
+
+    <h2>实时指标</h2>
+    <table class="stats">
+      <tr><td>当前模式</td><td id="s-mode">脏矩形</td></tr>
+      <tr><td>FPS(滑动平均)</td><td id="s-fps">--</td></tr>
+      <tr><td>帧耗时 P95</td><td id="s-p95">--</td></tr>
+      <tr><td>脏矩形(合并前/后)</td><td id="s-rects">0 / 0</td></tr>
+      <tr><td>脏区占比</td><td id="s-ratio">0%</td></tr>
+      <tr><td>降级次数</td><td id="s-fallbacks">0</td></tr>
+      <tr><td>图层缓存命中</td><td id="s-cache">--</td></tr>
+      <tr><td>画布显存估算</td><td id="s-mem">--</td></tr>
+      <tr><td>JS 堆内存</td><td id="s-heap">--</td></tr>
+      <tr><td>长任务(&gt;50ms)</td><td id="s-longtask">0</td></tr>
+      <tr><td>一致性校验</td><td id="s-verify">未运行</td></tr>
+    </table>
+
+    <h2>自检(z-order / 合并 / 等价性)</h2>
+    <ul id="selftest" class="selftest"></ul>
+
+    <h2>对比测试结果</h2>
+    <div id="bench-result">尚未运行</div>
+
+    <h2>历史记录(IndexedDB)</h2>
+    <div class="row"><button id="btn-clear-db">清空历史</button></div>
+    <table class="history" id="history">
+      <thead><tr><th>时间</th><th>模式</th><th>对象</th><th>更新率</th><th>平均FPS</th><th>P95(ms)</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </aside>
+</main>
+
+<script src="js/db.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
