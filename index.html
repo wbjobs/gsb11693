@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>渲染排序与脏矩形重绘对照</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, "PingFang SC", sans-serif; margin: 0; padding: 16px; background: #1e1e28; color: #ddd; }
+  h1 { font-size: 18px; margin: 0 0 12px; }
+  .layout { display: flex; gap: 16px; flex-wrap: wrap; }
+  .panel { background: #2a2a38; border-radius: 8px; padding: 12px; }
+  canvas#stage { background: #14141c; border-radius: 4px; display: block; }
+  .controls { width: 320px; display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+  .controls label { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .controls select, .controls input[type="number"] { width: 90px; background: #1e1e28; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 3px 6px; }
+  button { background: #3498db; color: #fff; border: 0; border-radius: 4px; padding: 7px 10px; cursor: pointer; font-size: 13px; }
+  button:disabled { background: #555; cursor: wait; }
+  button.secondary { background: #4a4a5e; }
+  .stat { display: flex; justify-content: space-between; background: #1e1e28; padding: 6px 8px; border-radius: 4px; }
+  .stat b { color: #2ecc71; font-size: 16px; }
+  .pass { color: #2ecc71; font-weight: bold; }
+  .fail { color: #e74c3c; font-weight: bold; }
+  #log { height: 140px; overflow-y: auto; font-size: 11px; font-family: ui-monospace, monospace; background: #14141c; padding: 6px; border-radius: 4px; }
+  .hud { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: #aaa; }
+</style>
+</head>
+<body>
+<h1>渲染排序 · 脏矩形局部重绘 · 图层缓存 — 全量 vs 脏矩形帧率对照</h1>
+<div class="layout">
+  <div class="panel">
+    <canvas id="stage" width="960" height="600"></canvas>
+    <div class="hud">
+      <span id="dirtyInfo">脏矩形 -</span>
+      <span id="cacheInfo">缓存 -</span>
+      <span id="memInfo"></span>
+      <span id="longTasks"></span>
+    </div>
+  </div>
+  <div class="panel controls">
+    <label>渲染模式
+      <select id="mode">
+        <option value="dirty">脏矩形重绘</option>
+        <option value="full">全量重绘</option>
+      </select>
+    </label>
+    <label>对象数量 <span id="objCountLabel">800</span>
+      <input type="range" id="objCount" min="100" max="3000" step="100" value="800">
+    </label>
+    <label>图层缓存
+      <input type="checkbox" id="cacheToggle" checked>
+    </label>
+    <label>缓存预算 (MB)
+      <input type="number" id="cacheBudget" value="32" min="1" max="256">
+    </label>
+    <label>降级阈值 (面积比)
+      <input type="number" id="degradeRatio" value="0.6" min="0.1" max="1" step="0.05">
+    </label>
+    <div class="stat"><span>全量重绘 FPS</span><b id="fpsFull">-</b></div>
+    <div class="stat"><span>脏矩形 FPS</span><b id="fpsDirty">-</b></div>
+    <div id="checkResult" class="pass">一致性：未校验</div>
+    <button id="benchBtn">运行基准对照（各 5s）</button>
+    <button id="checkBtn" class="secondary">立即一致性校验</button>
+    <button id="clearBtn" class="secondary">清空历史数据</button>
+    <div id="status">就绪</div>
+    <canvas id="chart" width="296" height="120" style="background:#1e1e28;border-radius:4px"></canvas>
+    <div id="log"></div>
+  </div>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

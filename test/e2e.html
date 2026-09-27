@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>e2e</title></head>
+<body>
+<pre id="result">RUNNING</pre>
+<script type="module">
+// 端到端验收：z-order、脏矩形 vs 全量像素一致性、合并正确性、
+// 图层缓存命中/失效、降级路径、帧率对照（可量化输出）。
+import { Renderer, compareCanvasPixels } from '../src/renderer.js';
+import { zsort, isZSorted } from '../src/zsort.js';
+import { mergeDirtyRects } from '../src/rects.js';
+import { createScene, stepScene } from '../src/scene.js';
+
+const W = 480, H = 300, LAYERS = 4, FRAMES = 90;
+const results = {};
+const failures = [];
+
+function check(name, ok, detail = '') {
+  results[name] = { ok, detail };
+  if (!ok) failures.push(`${name}: ${detail}`);
+}
+
+function makeCanvas() {
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  return c;
+}
+
+// 1. z-order 排序正确性
+{
+  const objs = createScene(500, W, H, LAYERS);
+  const sorted = zsort(objs);
+  check('zorder', isZSorted(sorted), `${sorted.length} objects`);
+}
+
+// 2~5. 逐帧模拟：脏矩形一致性 + 缓存 + 降级 + 帧率对照
+{
+  const objects = createScene(600, W, H, LAYERS);
+  const byId = new Map(objects.map((o) => [o.id, o]));
+  const renderer = new Renderer(W, H, LAYERS, { cacheBudgetBytes: 8 * 1024 * 1024 });
+
+  const fullCanvas = makeCanvas();
+  const dirtyCanvas = makeCanvas();
+  const fctx = fullCanvas.getContext('2d');
+  const dctx = dirtyCanvas.getContext('2d');
+
+  // 预热：两画布先各自全量一帧，保证起点一致
+  renderer.renderFull(fctx, objects);
+  renderer.renderFull(dctx, objects);
+
+  let pixelMismatches = 0;
+  let checkedFrames = 0;
+  let sawDegrade = false;
+  let fullMs = 0, dirtyMs = 0;
+
+  for (let f = 0; f < FRAMES; f++) {
+    const events = stepScene(objects, 1 / 60, W, H);
+    renderer.applyEvents(events, byId);
+    const dirtyRects = Renderer.dirtyRectsFromEvents(events, byId);
+
+    let t0 = performance.now();
+    renderer.renderFull(fctx, objects);
+    fullMs += performance.now() - t0;
+
+    t0 = performance.now();
+    const info = renderer.renderDirty(dctx, objects, dirtyRects);
+    dirtyMs += performance.now() - t0;
+    if (info.degraded) sawDegrade = true;
+
+    const mm = compareCanvasPixels(fullCanvas, dirtyCanvas);
+    pixelMismatches += mm;
+    checkedFrames++;
+  }
+
+  check('consistency', pixelMismatches === 0,
+    `${checkedFrames} 帧逐像素对比，差异 ${pixelMismatches}px`);
+
+  const cs = renderer.cache.stats;
+  check('layerCache', cs.hits > 0 && cs.invalidations > 0,
+    `hits=${cs.hits} misses=${cs.misses} invalidations=${cs.invalidations} evictions=${cs.evictions} bytes=${renderer.cache.totalBytes}`);
+
+  // 内存控制：缓存字节数不超过预算 + 一个图层的开销
+  const budget = 2 * 1024 * 1024;
+  const tight = new Renderer(W, H, LAYERS, { cacheBudgetBytes: budget });
+  const objs = createScene(300, W, H, LAYERS);
+  const layers = tight.groupByLayer(objs);
+  for (let i = 0; i < LAYERS; i++) tight.layerBitmap(i, layers[i]);
+  const layerBytes = W * H * 4;
+  check('memoryBound', tight.cache.totalBytes <= budget + layerBytes,
+    `totalBytes=${tight.cache.totalBytes} budget=${budget} evictions=${tight.cache.stats.evictions}`);
+
+  // 降级路径：构造超大脏区域
+  const bigRects = [];
+  for (let i = 0; i < 10; i++) bigRects.push({ x: (i % 5) * 90, y: Math.floor(i / 5) * 140, w: 95, h: 145 });
+  const merged = mergeDirtyRects(bigRects, { canvasWidth: W, canvasHeight: H, degradeRatio: 0.6 });
+  check('degrade', merged.degraded === true, `coverage=${(merged.totalArea / (W * H)).toFixed(2)}`);
+
+  // 帧率对照（可量化）
+  const speedup = dirtyMs > 0 ? fullMs / dirtyMs : 0;
+  check('fpsCompare', dirtyMs < fullMs,
+    `full=${fullMs.toFixed(1)}ms dirty=${dirtyMs.toFixed(1)}ms speedup=${speedup.toFixed(2)}x (${FRAMES} 帧)`);
+  results.fpsCompare.fullMs = fullMs;
+  results.fpsCompare.dirtyMs = dirtyMs;
+}
+
+// 6. 合并正确性：输出完整覆盖输入
+{
+  const input = Array.from({ length: 40 }, (_, i) => ({
+    x: (i * 61) % (W - 30), y: (i * 37) % (H - 30), w: 25, h: 25,
+  }));
+  const { rects } = mergeDirtyRects(input, { canvasWidth: W, canvasHeight: H });
+  const allCovered = input.every((r) => {
+    const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+    return rects.some((m) => cx >= m.x && cx <= m.x + m.w && cy >= m.y && cy <= m.y + m.h);
+  });
+  check('mergeCoverage', allCovered, `${input.length} 输入 -> ${rects.length} 合并矩形`);
+}
+
+const pass = failures.length === 0;
+document.getElementById('result').textContent =
+  `RESULT: ${pass ? 'PASS' : 'FAIL'}\n` +
+  failures.join('\n') +
+  `\nDETAIL: ${JSON.stringify(results, null, 1)}`;
+document.title = pass ? 'E2E-PASS' : 'E2E-FAIL';
+</script>
+</body>
+</html>
